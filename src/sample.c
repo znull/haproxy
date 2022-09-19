@@ -15,6 +15,7 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include <import/mjson.h>
 #include <import/sha1.h>
@@ -3518,6 +3519,17 @@ int sample_conv_var2smp_sint(const struct arg *arg, struct sample *smp)
 	}
 }
 
+/* Takes the input as an integer probability between 0 and 100, and
+ * returns true that percentage of the time.
+ */
+static int sample_conv_rand_percent(const struct arg *arg_p, struct sample *smp, void *private)
+{
+	unsigned r = ((random() * 100) / ((u64)RAND_MAX+1));
+	smp->data.u.sint = (r < smp->data.u.sint);
+	smp->data.type = SMP_T_BOOL;
+	return 1;
+}
+
 /* Takes a SINT on input, applies a binary twos complement and returns the SINT
  * result.
  */
@@ -5895,6 +5907,7 @@ static struct sample_conv_kw_list sample_conv_kws = {ILH, {
 	{ "param",   sample_conv_param,        ARG2(1,STR,STR),       sample_conv_param_check,  SMP_T_STR,  SMP_T_STR  },
 	{ "regsub",  sample_conv_regsub,       ARG3(2,REG,STR,STR),   sample_conv_regsub_check, SMP_T_STR,  SMP_T_STR  },
 	{ "sha1",    sample_conv_sha1,         0,                     NULL,                     SMP_T_BIN,  SMP_T_BIN  },
+	{ "rand_percent", sample_conv_rand_percent, 0,                     NULL,                     SMP_T_SINT, SMP_T_BOOL },
 	{ "strcmp",      sample_conv_strcmp,      ARG1(1,STR),        smp_check_strcmp,         SMP_T_STR,  SMP_T_SINT },
 	{ "host_only",   sample_conv_host_only,   0,                  NULL,                     SMP_T_STR,  SMP_T_STR  },
 	{ "port_only",   sample_conv_port_only,   0,                  NULL,                     SMP_T_STR,  SMP_T_SINT },
