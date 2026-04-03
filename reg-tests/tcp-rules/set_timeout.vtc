@@ -1,0 +1,101 @@
+varnishtest "tcp-request set-timeout test"
+
+feature ignore_unknown_macro
+
+server srv_t1 -repeat 2 {
+    recv 1
+    send "OK\n"
+} -start
+
+server srv_t2 {
+    recv 1
+    delay 2
+    send "OK\n"
+} -start
+
+syslog Slog1 -level info {
+    recv
+    expect ~ "^.*timeout: 5000 3000.*$"
+} -start
+
+syslog Slog2 -level info {
+    recv
+    expect ~ "^.*timeout: 5000 3000.*$"
+} -start
+
+haproxy hap -conf {
+    defaults
+        timeout connect 5s
+        timeout client 5s
+        timeout server 5s
+        timeout queue 5s
+
+    listen li1
+        mode tcp
+        bind "fd@${li1}"
+        log-format "timeout: %[be_connect_timeout] %[cur_connect_timeout]"
+        log ${Slog1_addr}:${Slog1_port} len 2048 local0 debug err
+        tcp-request content set-timeout connect 3s
+        server srv_t1 ${srv_t1_addr}:${srv_t1_port}
+
+    listen li2
+        mode tcp
+        bind "fd@${li2}"
+        log-format "timeout: %[be_queue_timeout] %[cur_queue_timeout]"
+        log ${Slog2_addr}:${Slog2_port} len 2048 local0 debug err
+        tcp-request content set-timeout queue 3s
+        server srv_t1 ${srv_t1_addr}:${srv_t1_port}
+
+    listen li3
+        mode tcp
+        bind "fd@${li3}"
+        tcp-request content set-timeout queue 200
+        server srv_t2 ${srv_t2_addr}:${srv_t2_port} maxconn 1
+} -start
+
+client c1 -connect ${hap_li1_sock} {
+    send "x"
+    recv 3
+} -run
+
+client c2 -connect ${hap_li2_sock} {
+    send "x"
+    recv 3
+} -run
+
+client c3 -connect ${hap_li3_sock} {
+    send "x"
+    recv 3
+} -start
+
+delay 0.5
+
+client c4 -connect ${hap_li3_sock} {
+    send "y"
+    expect_close
+} -run
+
+client c3 -wait
+
+syslog Slog1 -wait
+syslog Slog2 -wait
+
+haproxy h2 -conf-BAD {} {
+    listen li1
+        mode tcp
+        timeout connect 5s
+        timeout client 5s
+        timeout server 5s
+        bind "fd@${li1}"
+        tcp-response content set-timeout queue 5s
+}
+
+haproxy h3 -conf-BAD {} {
+    listen li1
+        mode tcp
+        timeout connect 5s
+        timeout client 5s
+        timeout server 5s
+        bind "fd@${li1}"
+        tcp-response content set-timeout connect 5s
+}
