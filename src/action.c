@@ -193,7 +193,7 @@ int cfg_parse_rule_set_timeout(const char **args, int idx, struct act_rule *rule
 			memprintf(err, "'%s' has no backend capability", px->id);
 			return -1;
 		}
-		if (rule->from == ACT_F_HTTP_RES) {
+		if (rule->from == ACT_F_HTTP_RES || rule->from == ACT_F_TCP_RES_CNT) {
 			memprintf(err, "'set-timeout connect' is not supported in response rules");
 			return -1;
 		}
@@ -211,7 +211,7 @@ int cfg_parse_rule_set_timeout(const char **args, int idx, struct act_rule *rule
 			memprintf(err, "'%s' has no backend capability", px->id);
 			return -1;
 		}
-		if (rule->from == ACT_F_HTTP_RES) {
+		if (rule->from == ACT_F_HTTP_RES || rule->from == ACT_F_TCP_RES_CNT) {
 			memprintf(err, "'set-timeout queue' is not supported in response rules");
 			return -1;
 		}

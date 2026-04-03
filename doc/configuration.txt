@@ -14705,7 +14705,7 @@ set-retries                    -           -     -     X     -            X   - 
 set-src                        -           X     X     X     -            X   -   -
 set-src-port                   -           X     X     X     -            X   -   -
 set-status                     -           -     -     -     -            -   X   X
-set-timeout                    -           -     -     -     -            X   X   -
+set-timeout                    -           -     -     X     X            X   X   -
 set-tos (deprecated)           -           X     X     X     X            X   X   -
 set-uri                        -           -     -     -     -            X   -   -
 set-var                        -           X     X     X     X            X   X   X
@@ -16009,7 +16009,7 @@ set-status <status> [reason <str>]
 
 set-timeout { client | connect | queue | server | tarpit | tunnel } { <timeout> | <expr> }
   Usable in:  QUIC Ini|    TCP RqCon| RqSes| RqCnt| RsCnt|    HTTP Req| Res| Aft
-                    - |          -  |   -  |   -  |   -  |          X |  X |  -
+                    - |          -  |   -  |   X  |   X  |          X |  X |  -
 
   This action overrides the specified "client", "connect", "queue", "server",
   "tarpit" or "tunnel" timeout for the current stream only. Changing one timeout
@@ -16046,6 +16046,11 @@ set-timeout { client | connect | queue | server | tarpit | tunnel } { <timeout> 
       # This will only change the connect timeout to 10s without affecting
       # queue or tarpit timeouts
       http-request set-timeout connect 10s
+
+  Example:
+    tcp-request content set-timeout queue 2s
+    tcp-request content set-timeout server 10s
+
 
 set-tos <tos> (deprecated)
   This is an alias for "set-fc-tos" (which should be used instead).
