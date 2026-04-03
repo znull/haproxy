@@ -38,6 +38,7 @@
 #include <haproxy/sc_strm.h>
 #include <haproxy/server.h>
 #include <haproxy/session.h>
+#include <haproxy/stream.h>
 #include <haproxy/tcp_rules.h>
 #include <haproxy/tools.h>
 
@@ -834,6 +835,54 @@ static enum act_parse_ret tcp_res_cont_parse_do_log(const char **args, int *orig
 	return do_log_parse_act(do_log_tcp_res_cont, args, orig_arg, px, rule, err);
 }
 
+static enum act_return tcp_action_set_timeout(struct act_rule *rule,
+                                              struct proxy *px,
+                                              struct session *sess,
+                                              struct stream *s,
+                                              int flags)
+{
+	struct sample *key;
+
+	if (rule->arg.timeout.expr) {
+		key = sample_fetch_as_type(px, sess, s, SMP_OPT_FINAL, rule->arg.timeout.expr, SMP_T_SINT);
+		if (!key)
+			return ACT_RET_CONT;
+
+		stream_set_timeout(s, rule->arg.timeout.type, MS_TO_TICKS(key->data.u.sint));
+	}
+	else {
+		stream_set_timeout(s, rule->arg.timeout.type, MS_TO_TICKS(rule->arg.timeout.value));
+	}
+
+	return ACT_RET_CONT;
+}
+
+static enum act_parse_ret tcp_parse_set_timeout(const char **args,
+                                                int *orig_arg,
+                                                struct proxy *px,
+                                                struct act_rule *rule, char **err)
+{
+	int cur_arg;
+
+	rule->action = ACT_CUSTOM;
+	rule->action_ptr = tcp_action_set_timeout;
+	rule->release_ptr = release_timeout_action;
+
+	cur_arg = *orig_arg;
+	if (!*args[cur_arg] || !*args[cur_arg + 1]) {
+		memprintf(err, "expects exactly 2 arguments");
+		return ACT_RET_PRS_ERR;
+	}
+
+	if (cfg_parse_rule_set_timeout(args, cur_arg, rule, px, err) == -1) {
+		return ACT_RET_PRS_ERR;
+	}
+
+	*orig_arg = cur_arg + 2;
+
+	return ACT_RET_PRS_OK;
+}
+
 static struct action_kw_list tcp_req_conn_actions = {ILH, {
 	{ "do-log"      , tcp_req_conn_parse_do_log },
 	{ "set-dst"     , tcp_parse_set_src_dst },
@@ -878,6 +927,7 @@ static struct action_kw_list tcp_req_cont_actions = {ILH, {
 	{ "set-mark",     tcp_parse_set_mark    }, // DEPRECATED, see set-fc-mark
 	{ "set-src",      tcp_parse_set_src_dst },
 	{ "set-src-port", tcp_parse_set_src_dst },
+	{ "set-timeout",  tcp_parse_set_timeout },
 	{ "set-tos",      tcp_parse_set_tos     }, // DEPRECATED, see set-fc-tos
 	{ "silent-drop",  tcp_parse_silent_drop },
 	{ /* END */ }
@@ -890,6 +940,7 @@ static struct action_kw_list tcp_res_cont_actions = {ILH, {
 	{ "set-fc-mark", tcp_parse_set_mark    },
 	{ "set-fc-tos",  tcp_parse_set_tos     },
 	{ "set-mark",    tcp_parse_set_mark    }, // DEPRECATED, see set-fc-mark
+	{ "set-timeout", tcp_parse_set_timeout },
 	{ "set-tos",     tcp_parse_set_tos     }, // DEPRECATED, see set-fc-tos
 	{ "silent-drop", tcp_parse_silent_drop },
 	{ /* END */ }
