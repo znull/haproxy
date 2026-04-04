@@ -516,3 +516,23 @@ syslog Slog19 -wait
 syslog Slog20 -wait
 syslog Slog21 -wait
 syslog Slog22 -wait
+
+haproxy h2 -conf-BAD {} {
+    listen li1
+        mode http
+        timeout connect 5s
+        timeout client 5s
+        timeout server 5s
+        bind "fd@${li1}"
+        http-response set-timeout queue 5s
+}
+
+haproxy h3 -conf-BAD {} {
+    listen li1
+        mode http
+        timeout connect 5s
+        timeout client 5s
+        timeout server 5s
+        bind "fd@${li1}"
+        http-response set-timeout connect 5s
+}
