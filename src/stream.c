@@ -1261,9 +1261,13 @@ static int process_switching_rules(struct stream *s, struct channel *req, int an
 	/* Se the max connection retries for the stream. may be overwritten later */
 	s->max_retries = s->be->conn_retries;
 
-	/* Set the queue and connect timeouts. May be overwritten later */
-	s->connect_timeout = s->be->timeout.connect;
-	s->queue_timeout = s->be->timeout.queue;
+	/* Set stream timeouts only if not already set by a set-timeout rule during
+	 * the frontend phase (listen block). May be overwritten later in a backend.
+	 */
+	if (!tick_isset(s->connect_timeout))
+		s->connect_timeout = s->be->timeout.connect;
+	if (!tick_isset(s->queue_timeout))
+		s->queue_timeout = s->be->timeout.queue;
 
 	/* we don't want to run the TCP or HTTP filters again if the backend has not changed */
 	if (fe == s->be) {
