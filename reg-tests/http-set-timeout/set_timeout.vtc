@@ -4,8 +4,14 @@ feature ignore_unknown_macro
 
 #REQUIRE_VERSION=2.4
 
-server srv_h1 -repeat 9 {
+server srv_h1 -repeat 21 {
     rxreq
+    txresp
+} -start
+
+server srv_h2 -repeat 2 {
+    rxreq
+    delay 2
     txresp
 } -start
 
@@ -54,12 +60,83 @@ syslog Slog9 -level info {
     expect ~ "^.*timeout: 5000 3000.*$"
 } -start
 
+syslog Slog10 -level info {
+    recv
+    expect ~ "^.*timeout: 5000 5000.*$"
+} -start
+
+syslog Slog11 -level info {
+    recv
+    expect ~ "^.*timeout: 5000 3000.*$"
+} -start
+
+syslog Slog12 -level info {
+    recv
+    expect ~ "^.*timeout: 5000 5000.*$"
+} -start
+
+syslog Slog13 -level info {
+    recv
+    expect ~ "^.*timeout: 5000 3000.*$"
+} -start
+
+syslog Slog14 -level info {
+    recv
+    expect ~ "^.*timeout: 0 3000.*$"
+} -start
+
+syslog Slog15 -level info {
+    recv
+    expect ~ "^.*timeout: 0 3000.*$"
+} -start
+
+syslog Slog16 -level info {
+    recv
+    expect ~ "^.*timeout: 2000 2000.*$"
+} -start
+
+syslog Slog17 -level info {
+    recv
+    expect ~ "^.*timeout: 2000 3000.*$"
+} -start
+
+syslog Slog18 -level info {
+    recv
+    expect ~ "^.*timeout: 2000 2000.*$"
+} -start
+
+syslog Slog19 -level info {
+    recv
+    expect ~ "^.*timeout: 2000 3000.*$"
+} -start
+
+syslog Slog20 -level info {
+    recv
+    expect ~ "^.*timeout: 0 3000.*$"
+} -start
+
+syslog Slog21 -level info {
+    recv
+    expect ~ "^.*timeout: 0 3000.*$"
+} -start
+
+syslog Slog22 -level info {
+    recv
+    expect ~ "^.*timeout: 2000 150.*$"
+    recv
+    expect ~ "^.*timeout: 2000 150.*$"
+} -start
+
 haproxy hap -conf {
+    defaults no_connect_timeout
+        timeout client 5s
+        timeout server 5s
+
     defaults
         timeout connect 5s
         timeout client 5s
         timeout server 5s
-        log global
+        timeout queue 2s
 
     listen li1
         mode http
@@ -147,6 +224,130 @@ haproxy hap -conf {
     backend be4
        mode http
        server srv_h1 ${srv_h1_addr}:${srv_h1_port}
+
+    frontend fe5
+        mode http
+        bind "fd@${fe5}"
+        log-format "timeout: %[be_connect_timeout] %[cur_connect_timeout]"
+        log ${Slog10_addr}:${Slog10_port} len 2048 local0 debug err
+        default_backend be5
+
+    backend be5
+        mode http
+        server srv_h1 ${srv_h1_addr}:${srv_h1_port}
+
+    frontend fe6
+        mode http
+        bind "fd@${fe6}"
+        log-format "timeout: %[be_connect_timeout] %[cur_connect_timeout]"
+        log ${Slog11_addr}:${Slog11_port} len 2048 local0 debug err
+        default_backend be6
+
+    backend be6
+        mode http
+        http-request set-timeout connect int(3),mul(1000)
+        server srv_h1 ${srv_h1_addr}:${srv_h1_port}
+
+    listen li6
+        mode http
+        bind "fd@${li6}"
+        log-format "timeout: %[be_connect_timeout] %[cur_connect_timeout]"
+        log ${Slog12_addr}:${Slog12_port} len 2048 local0 debug err
+        server srv_h1 ${srv_h1_addr}:${srv_h1_port}
+
+    listen li7
+        mode http
+        bind "fd@${li7}"
+        log-format "timeout: %[be_connect_timeout] %[cur_connect_timeout]"
+        log ${Slog13_addr}:${Slog13_port} len 2048 local0 debug err
+        http-request set-timeout connect 3s
+        server srv_h1 ${srv_h1_addr}:${srv_h1_port}
+
+    frontend fe7 from no_connect_timeout
+        mode http
+        bind "fd@${fe7}"
+        log-format "timeout: %[be_connect_timeout] %[cur_connect_timeout]"
+        log ${Slog14_addr}:${Slog14_port} len 2048 local0 debug err
+        default_backend be7
+
+    backend be7 from no_connect_timeout
+        mode http
+        http-request set-timeout connect int(3),mul(1000)
+        server srv_h1 ${srv_h1_addr}:${srv_h1_port}
+
+    listen li8 from no_connect_timeout
+        mode http
+        bind "fd@${li8}"
+        log-format "timeout: %[be_connect_timeout] %[cur_connect_timeout]"
+        log ${Slog15_addr}:${Slog15_port} len 2048 local0 debug err
+        http-request set-timeout connect 3s
+        server srv_h1 ${srv_h1_addr}:${srv_h1_port}
+
+    frontend fe8
+        mode http
+        bind "fd@${fe8}"
+        log-format "timeout: %[be_queue_timeout] %[cur_queue_timeout]"
+        log ${Slog16_addr}:${Slog16_port} len 2048 local0 debug err
+        default_backend be8
+
+    backend be8
+        mode http
+        server srv_h1 ${srv_h1_addr}:${srv_h1_port}
+
+    frontend fe9
+        mode http
+        bind "fd@${fe9}"
+        log-format "timeout: %[be_queue_timeout] %[cur_queue_timeout]"
+        log ${Slog17_addr}:${Slog17_port} len 2048 local0 debug err
+        default_backend be9
+
+    backend be9
+        mode http
+        http-request set-timeout queue int(3),mul(1000)
+        server srv_h1 ${srv_h1_addr}:${srv_h1_port}
+
+    listen li9
+        mode http
+        bind "fd@${li9}"
+        log-format "timeout: %[be_queue_timeout] %[cur_queue_timeout]"
+        log ${Slog18_addr}:${Slog18_port} len 2048 local0 debug err
+        server srv_h1 ${srv_h1_addr}:${srv_h1_port}
+
+    listen li10
+        mode http
+        bind "fd@${li10}"
+        log-format "timeout: %[be_queue_timeout] %[cur_queue_timeout]"
+        log ${Slog19_addr}:${Slog19_port} len 2048 local0 debug err
+        http-request set-timeout queue 3s
+        server srv_h1 ${srv_h1_addr}:${srv_h1_port}
+
+    frontend fe10 from no_connect_timeout
+        mode http
+        bind "fd@${fe10}"
+        log-format "timeout: %[be_queue_timeout] %[cur_queue_timeout]"
+        log ${Slog20_addr}:${Slog20_port} len 2048 local0 debug err
+        default_backend be10
+
+    backend be10 from no_connect_timeout
+        mode http
+        http-request set-timeout queue int(3),mul(1000)
+        server srv_h1 ${srv_h1_addr}:${srv_h1_port}
+
+    listen li11 from no_connect_timeout
+        mode http
+        bind "fd@${li11}"
+        log-format "timeout: %[be_queue_timeout] %[cur_queue_timeout]"
+        log ${Slog21_addr}:${Slog21_port} len 2048 local0 debug err
+        http-request set-timeout queue 3s
+        server srv_h1 ${srv_h1_addr}:${srv_h1_port}
+
+    listen li12
+        mode http
+        bind "fd@${li12}"
+        log-format "timeout: %[be_queue_timeout] %[cur_queue_timeout]"
+        log ${Slog22_addr}:${Slog22_port} len 2048 local0 debug err
+        http-request set-timeout queue 150
+        server srv_h2 ${srv_h2_addr}:${srv_h2_port} maxconn 1
 } -start
 
 client c1 -connect ${hap_li1_sock} {
@@ -203,6 +404,93 @@ client c9 -connect ${hap_fe4_sock} {
     expect resp.status == 200
 } -run
 
+client c10 -connect ${hap_fe5_sock} {
+    txreq
+    rxresp
+    expect resp.status == 200
+} -run
+
+client c11 -connect ${hap_fe6_sock} {
+    txreq
+    rxresp
+    expect resp.status == 200
+} -run
+
+client c12 -connect ${hap_li6_sock} {
+    txreq
+    rxresp
+    expect resp.status == 200
+} -run
+
+client c13 -connect ${hap_li7_sock} {
+    txreq
+    rxresp
+    expect resp.status == 200
+} -run
+
+client c14 -connect ${hap_fe7_sock} {
+    txreq
+    rxresp
+    expect resp.status == 200
+} -run
+
+client c15 -connect ${hap_li8_sock} {
+    txreq
+    rxresp
+    expect resp.status == 200
+} -run
+
+client c16 -connect ${hap_fe8_sock} {
+    txreq
+    rxresp
+    expect resp.status == 200
+} -run
+
+client c17 -connect ${hap_fe9_sock} {
+    txreq
+    rxresp
+    expect resp.status == 200
+} -run
+
+client c18 -connect ${hap_li9_sock} {
+    txreq
+    rxresp
+    expect resp.status == 200
+} -run
+
+client c19 -connect ${hap_li10_sock} {
+    txreq
+    rxresp
+    expect resp.status == 200
+} -run
+
+client c20 -connect ${hap_fe10_sock} {
+    txreq
+    rxresp
+    expect resp.status == 200
+} -run
+
+client c21 -connect ${hap_li11_sock} {
+    txreq
+    rxresp
+    expect resp.status == 200
+} -run
+
+client c22 -connect ${hap_li12_sock} {
+    txreq
+    rxresp
+    expect resp.status == 200
+} -start
+
+client c23 -connect ${hap_li12_sock} {
+    delay 0.2
+    txreq
+    rxresp
+    expect resp.status == 503
+} -run
+
+client c22 -wait
+
 syslog Slog1 -wait
 syslog Slog2 -wait
 syslog Slog3 -wait
@@ -212,3 +500,16 @@ syslog Slog6 -wait
 syslog Slog7 -wait
 syslog Slog8 -wait
 syslog Slog9 -wait
+syslog Slog10 -wait
+syslog Slog11 -wait
+syslog Slog12 -wait
+syslog Slog13 -wait
+syslog Slog14 -wait
+syslog Slog15 -wait
+syslog Slog16 -wait
+syslog Slog17 -wait
+syslog Slog18 -wait
+syslog Slog19 -wait
+syslog Slog20 -wait
+syslog Slog21 -wait
+syslog Slog22 -wait
