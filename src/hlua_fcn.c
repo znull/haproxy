@@ -23,6 +23,8 @@
 
 #include <import/ebmbtree.h>
 
+#include <haproxy/base64.h>
+#include <haproxy/chunk.h>
 #include <haproxy/cli-t.h>
 #include <haproxy/errors.h>
 #include <haproxy/hlua.h>
@@ -2533,6 +2535,30 @@ int hlua_tokenize(lua_State *L)
 	return 1;
 }
 
+/* This Lua function decodes a standard base64-encoded string using HAProxy's
+ * native base64 decoder (equivalent to the "b64dec" sample converter). It
+ * returns the decoded string on success, or nil if the input is not valid
+ * base64. The decoded output is bounded by the size of a trash chunk
+ * (tune.bufsize). The trash chunk is thread-local, so no locking is required.
+ */
+static int hlua_b64dec(lua_State *L)
+{
+	const char *input;
+	size_t input_len;
+	struct buffer *trash = get_trash_chunk();
+	int out_len;
+
+	input = luaL_checklstring(L, 1, &input_len);
+	out_len = base64dec(input, input_len, trash->area, trash->size);
+	if (out_len < 0) {
+		lua_pushnil(L);
+		return 1;
+	}
+
+	lua_pushlstring(L, trash->area, out_len);
+	return 1;
+}
+
 int hlua_parse_addr(lua_State *L)
 {
 	struct net_addr *addr;
@@ -3263,6 +3289,7 @@ void hlua_fcn_reg_core_fcn(lua_State *L)
 	hlua_class_function(L, "parse_addr", hlua_parse_addr);
 	hlua_class_function(L, "match_addr", hlua_match_addr);
 	hlua_class_function(L, "tokenize", hlua_tokenize);
+	hlua_class_function(L, "b64dec", hlua_b64dec);
 
 	/* Create regex object. */
 	lua_newtable(L);

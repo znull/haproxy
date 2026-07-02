@@ -1,0 +1,72 @@
+varnishtest "Lua: core.b64dec"
+#REQUIRE_OPTIONS=LUA
+
+feature ignore_unknown_macro
+
+haproxy h1 -conf {
+    global
+        tune.lua.bool-sample-conversion normal
+        lua-load ${testdir}/b64dec.lua
+
+    defaults
+        timeout client 30s
+        timeout server 30s
+        timeout connect 30s
+
+    frontend fe1
+        mode http
+        bind "fd@${fe1}"
+
+        http-request use-service lua.b64dec
+} -start
+
+client c0 -connect ${h1_fe1_sock} {
+    # valid, single '=' padding
+    txreq -url "/" \
+        -hdr "Input: aGVsbG8gd29ybGQ="
+    rxresp
+    expect resp.status == 200
+    expect resp.http.decoded == "hello world"
+
+    # valid, single '=' padding
+    txreq -url "/" \
+        -hdr "Input: Zm9vYmE="
+    rxresp
+    expect resp.status == 200
+    expect resp.http.decoded == "fooba"
+
+    # valid, no padding
+    txreq -url "/" \
+        -hdr "Input: Zm9vYmFy"
+    rxresp
+    expect resp.status == 200
+    expect resp.http.decoded == "foobar"
+
+    # valid, double '=' padding
+    txreq -url "/" \
+        -hdr "Input: Zm9vYg=="
+    rxresp
+    expect resp.status == 200
+    expect resp.http.decoded == "foob"
+
+    # empty input decodes to empty string
+    txreq -url "/" \
+        -hdr "Input: "
+    rxresp
+    expect resp.status == 200
+    expect resp.http.decoded == ""
+
+    # invalid base64 (bad length) returns nil
+    txreq -url "/" \
+        -hdr "Input: abc"
+    rxresp
+    expect resp.status == 200
+    expect resp.http.decoded == "(nil)"
+
+    # invalid base64 (illegal character) returns nil
+    txreq -url "/" \
+        -hdr "Input: aGVsb*8="
+    rxresp
+    expect resp.status == 200
+    expect resp.http.decoded == "(nil)"
+} -run
