@@ -970,6 +970,15 @@ Core class
   Match two networks. For example "127.0.0.1/32" matches "127.0.0.0/8". The
   order of network is not important.
 
+.. js:function:: core.b64dec(encoded)
+
+  **context**: body, init, task, action, sample-fetch, converter
+
+  This function decodes a standard base64-encoded string using HAProxy's native
+  base64 decoder (equivalent to the "b64dec" sample converter).
+  :param string encoded: The standard base64-encoded string to decode.
+  :returns: the decoded string, or nil if the input is not valid base64. Size is bounded to tune.bufsize.
+
 .. js:function:: core.tokenize(str, separators [, noblank])
 
   **context**: body, init, task, action, sample-fetch, converter
