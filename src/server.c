@@ -2916,6 +2916,25 @@ void srv_settings_init(struct server *srv)
 
 	srv->uweight = srv->iweight = 1;
 
+	/* GitHub: HAProxy 3.3 introduced automatic backend SNI derived from the
+	 * HTTP Host header (sni_expr = "req.hdr(host),field(1,:)"), enabled by
+	 * default. On "verify required" backends this breaks setups where the
+	 * Host header does not match the origin certificate (e.g. health checks),
+	 * yielding SSL_MISMATCH_SNI and aborted backend handshakes. Restore the
+	 * pre-3.3 default of NOT sending an automatic SNI, for regular traffic
+	 * (SRV_SSL_O_NO_AUTO_SNI) as well as health checks (SRV_F_CHK_NO_AUTO_SNI).
+	 * The "sni-auto"/"no-sni-auto" and "check-sni-auto"/"no-check-sni-auto"
+	 * server keywords still toggle this explicitly from the configuration.
+	 *
+	 * TEMPORARY: this only changes the default, so drop it once no backend
+	 * depends on it -- i.e. every SSL backend either sets "sni" to the name
+	 * the origin certificate expects, or sets both "no-sni-auto" and
+	 * "no-check-sni-auto" to opt out of automatic SNI. Then follow upstream's
+	 * default.
+	 */
+	srv->ssl_ctx.options |= SRV_SSL_O_NO_AUTO_SNI;
+	srv->flags |= SRV_F_CHK_NO_AUTO_SNI;
+
 #ifdef USE_QUIC
 	srv->quic_max_cwnd = quic_tune.be.cc_max_win_size;
 #endif
