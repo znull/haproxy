@@ -2722,9 +2722,12 @@ static size_t h1_make_headers(struct h1s *h1s, struct h1m *h1m, struct htx *htx,
 				v = ist("trailers");
 			}
 
-			/* Skip header if same name is used to add the server name */
+			/* Skip header if same name is used to add the server name or date */
 			if (!(h1m->flags & H1_MF_RESP) && isttest(h1c->px->server_id_hdr_name) &&
 			    isteqi(n, h1c->px->server_id_hdr_name))
+				goto nextblk;
+			if (!(h1m->flags & H1_MF_RESP) && isttest(h1c->px->server_date_hdr_name) &&
+			    isteqi(n, h1c->px->server_date_hdr_name))
 				goto nextblk;
 
 			if (!h1_format_htx_hdr(n, v, &outbuf, hdrs_map))
@@ -2906,6 +2909,20 @@ static size_t h1_make_eoh(struct h1s *h1s, struct h1m *h1m, struct htx *htx, siz
 		}
 		TRACE_STATE("add server name header", H1_EV_TX_DATA|H1_EV_TX_HDRS, h1c->conn, h1s);
 		h1s->flags |= H1S_F_HAVE_SRV_NAME;
+	}
+
+	/* Add the dispatch date to a header (if requested) */
+	if (!(h1s->flags & H1S_F_HAVE_SRV_DATE) &&
+	    !(h1m->flags & H1_MF_RESP) && isttest(h1c->px->server_date_hdr_name)) {
+		char date_str[21];
+		char *end = ulltoa((ullong)date.tv_sec * 1000000 + date.tv_usec, date_str, sizeof(date_str));
+
+		n = h1c->px->server_date_hdr_name;
+		v = ist2(date_str, end - date_str);
+		if (!h1_format_htx_hdr(n, v, &outbuf, hdrs_map))
+			goto full;
+		TRACE_STATE("add dispatch date header", H1_EV_TX_DATA|H1_EV_TX_HDRS, h1c->conn, h1s);
+		h1s->flags |= H1S_F_HAVE_SRV_DATE;
 	}
 
 	/* Add websocket handshake key if needed */

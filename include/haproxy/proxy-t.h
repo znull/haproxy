@@ -414,6 +414,7 @@ struct proxy {
 	unsigned int fe_sps_lim;		/* limit on new sessions per second on the frontend */
 	unsigned int fullconn;			/* #conns on backend above which servers are used at full load */
 	struct ist server_id_hdr_name;                   /* the header to use to send the server id (name) */
+	struct ist server_date_hdr_name;                 /* the header to use to send the date the request is sent to the server */
 	int conn_retries;			/* maximum number of connect retries */
 	unsigned int retry_type;                /* Type of retry allowed */
 	int redispatch_after;			/* number of retries before redispatch */
