@@ -1,0 +1,99 @@
+varnishtest "http-send-date-header: dispatch date after queueing"
+feature ignore_unknown_macro
+
+# Backend "be" sends to "fe2" (in the same haproxy) with maxconn 1 and adds the
+# dispatch date. fe2 returns the date minus the ingress date set by "fe", i.e.
+# how long the request waited between ingress and dispatch. /slow occupies the
+# only slot for 500ms, so /fast, sent while it is in progress, must queue.
+
+server s1 {
+	rxreq
+	expect req.url == "/slow"
+	delay 0.5
+	txresp
+} -start
+
+haproxy h1 -conf {
+    global
+    .if feature(THREAD)
+        thread-groups 1
+    .endif
+
+    defaults
+	mode http
+	timeout connect "${HAPROXY_TEST_TIMEOUT-5s}"
+	timeout client  "${HAPROXY_TEST_TIMEOUT-5s}"
+	timeout server  "${HAPROXY_TEST_TIMEOUT-5s}"
+	timeout queue   "${HAPROXY_TEST_TIMEOUT-5s}"
+
+    frontend fe
+	bind "fd@${fe}"
+	http-request set-header x-ingress-date "%[date(0,us)]"
+	default_backend be
+
+    backend be
+	http-send-date-header x-dispatch-date
+	server srv ${h1_fe2_addr}:${h1_fe2_port} maxconn 1
+
+    frontend fe2
+	bind "fd@${fe2}"
+	http-request set-var(txn.ingress) req.hdr(x-ingress-date)
+	http-request return status 200 hdr x-dispatch-count "%[req.hdr_cnt(x-dispatch-date)]" hdr x-waited "%[req.hdr(x-dispatch-date),sub(txn.ingress)]" if { path /fast }
+	default_backend slow
+
+    frontend fe_h2
+	bind "fd@${feh2}"
+	http-request set-header x-ingress-date "%[date(0,us)]"
+	default_backend be_h2
+
+    backend be_h2
+	http-send-date-header x-dispatch-date
+	server srv ${h1_fe2h2_addr}:${h1_fe2h2_port} proto h2
+
+    frontend fe2_h2
+	bind "fd@${fe2h2}" proto h2
+	http-request set-var(txn.ingress) req.hdr(x-ingress-date)
+	http-request return status 200 hdr x-dispatch-count "%[req.hdr_cnt(x-dispatch-date)]" hdr x-waited "%[req.hdr(x-dispatch-date),sub(txn.ingress)]"
+
+    backend slow
+	server s1 ${s1_addr}:${s1_port}
+} -start
+
+# Not queued: dispatched within a fraction of a second, and a client-supplied
+# header of the same name is replaced.
+client c0 -connect ${h1_fe_sock} {
+	txreq -url "/fast" -hdr "x-dispatch-date: 1"
+	rxresp
+	expect resp.status == 200
+	expect resp.http.x-dispatch-count == 1
+	expect resp.http.x-waited >= 0
+	expect resp.http.x-waited < 250000
+} -run
+
+# Same over an HTTP/2 server connection.
+client c3 -connect ${h1_feh2_sock} {
+	txreq -url "/fast" -hdr "x-dispatch-date: 1"
+	rxresp
+	expect resp.status == 200
+	expect resp.http.x-dispatch-count == 1
+	expect resp.http.x-waited >= 0
+	expect resp.http.x-waited < 250000
+} -run
+
+client c1 -connect ${h1_fe_sock} {
+	txreq -url "/slow"
+	rxresp
+	expect resp.status == 200
+} -start
+
+delay 0.1
+
+client c2 -connect ${h1_fe_sock} {
+	txreq -url "/fast"
+	rxresp
+	expect resp.status == 200
+	expect resp.http.x-dispatch-count == 1
+	expect resp.http.x-waited >= 300000
+} -run
+
+client c1 -wait

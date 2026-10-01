@@ -47,7 +47,7 @@ static const char *common_kw_list[] = {
 	"persist", "appsession", "load-server-state-from-file",
 	"server-state-file-name", "max-session-srv-conns", "capture",
 	"retries", "http-request", "http-response", "http-after-response",
-	"http-send-name-header", "block", "redirect", "use_backend",
+	"http-send-name-header", "http-send-date-header", "block", "redirect", "use_backend",
 	"use-server", "force-persist", "ignore-persist",
 	"stick-table", "stick", "stats", "option", "default_backend",
 	"http-reuse", "monitor", "transparent", "maxconn", "backlog",
@@ -1440,7 +1440,11 @@ int cfg_parse_listen(const char *file, int linenum, char **args, int kwm)
 
 		LIST_APPEND(&curproxy->http_after_res_rules, &rule->list);
 	}
-	else if (strcmp(args[0], "http-send-name-header") == 0) { /* send server name in request header */
+	else if (strcmp(args[0], "http-send-name-header") == 0 ||   /* send server name in request header */
+	         strcmp(args[0], "http-send-date-header") == 0) {   /* send dispatch date in request header */
+		struct ist *hdr_name = (strcmp(args[0], "http-send-name-header") == 0) ?
+			&curproxy->server_id_hdr_name : &curproxy->server_date_hdr_name;
+
 		/* set the header name and length into the proxy structure */
 		if (warnifnotcap(curproxy, PR_CAP_BE, file, linenum, args[0], NULL))
 			err_code |= ERR_WARN;
@@ -1462,11 +1466,11 @@ int cfg_parse_listen(const char *file, int linenum, char **args, int kwm)
 		}
 
 		/* set the desired header name, in lower case */
-		istfree(&curproxy->server_id_hdr_name);
-		curproxy->server_id_hdr_name = istdup(ist(args[1]));
-		if (!isttest(curproxy->server_id_hdr_name))
+		istfree(hdr_name);
+		*hdr_name = istdup(ist(args[1]));
+		if (!isttest(*hdr_name))
 			goto alloc_error;
-		ist2bin_lc(istptr(curproxy->server_id_hdr_name), curproxy->server_id_hdr_name);
+		ist2bin_lc(istptr(*hdr_name), *hdr_name);
 	}
 	else if (strcmp(args[0], "block") == 0) {
 		ha_alert("parsing [%s:%d] : The '%s' directive is not supported anymore since HAProxy 2.1. Use 'http-request deny' which uses the exact same syntax.\n", file, linenum, args[0]);

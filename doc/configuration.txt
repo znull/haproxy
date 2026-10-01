@@ -6211,6 +6211,7 @@ http-error                                X          X         X         X
 http-request                              X (!)      X         X         X
 http-response                             X (!)      X         X         X
 http-reuse                                X          -         X         X
+http-send-date-header                     X          -         X         X
 http-send-name-header                     X          -         X         X
 id                                        -          X         X         X
 ignore-persist                            -          -         X         X
@@ -9211,6 +9212,32 @@ http-reuse { never | safe | aggressive | always }
              "pool-purge-delay", "server maxconn", "sni", "thread-groups",
              "tune.pool-high-fd-ratio", "tune.pool-low-fd-ratio"
 
+
+http-send-date-header <header>
+  Add a timestamp to a request. Use the header string given by <header>
+
+  May be used in the following contexts: http
+
+  May be used in sections:   defaults | frontend | listen | backend
+                               yes    |    no    |   yes  |   yes
+
+  Arguments :
+    <header>  The name of the header in which to send the date
+
+  The "http-send-date-header" statement causes the header field named <header>
+  to be set to the current date, in microseconds since the Unix epoch, at the
+  moment the request headers are about to be sent on the wire. This happens
+  after any time spent in a server or backend queue and after the server
+  connection is established, which HTTP rules can't do since they are all
+  evaluated before queueing. The date is the same internal wall clock as the one
+  returned by the "date" sample fetch, so a server that also receives e.g.
+  "%[date(0,us)]" set by an "http-request" rule can tell how long the request
+  waited in haproxy. Any existing occurrences of this header are removed. Upon
+  retries and redispatches, the header field reflects the last attempt. It is
+  supported with HTTP/1 and HTTP/2 servers, not FastCGI ones. The same header
+  names as for "http-send-name-header" are forbidden.
+
+  See also : "http-send-name-header", "date", "timeout queue"
 
 http-send-name-header [<header>]
   Add the server name to a request. Use the header string given by <header>

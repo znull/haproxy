@@ -87,7 +87,6 @@ static forceinline char *h1c_show_flags(char *buf, size_t len, const char *delim
 #define H1S_F_TX_BLK         0x00200000 /* Don't process more output data, waiting sync with input side */
 #define H1S_F_RX_CONGESTED   0x00000004 /* Cannot process input data RX path is congested (waiting for more space in channel's buffer) */
 
-/* 0x00000008 unused */
 #define H1S_F_WANT_KAL       0x00000010
 #define H1S_F_WANT_TUN       0x00000020
 #define H1S_F_WANT_CLO       0x00000040
@@ -104,6 +103,7 @@ static forceinline char *h1c_show_flags(char *buf, size_t len, const char *delim
 #define H1S_F_MUX_ERROR   (H1S_F_INTERNAL_ERROR|H1S_F_PROCESSING_ERROR)
 
 #define H1S_F_HAVE_SRV_NAME  0x00002000 /* Set during output process if the server name header was added to the request */
+#define H1S_F_HAVE_SRV_DATE  0x00000008 /* Set during output process if the dispatch date header was added to the request */
 #define H1S_F_HAVE_O_CONN    0x00004000 /* Set during output process to know connection mode was processed */
 #define H1S_F_HAVE_WS_KEY    0x00008000 /* Set during output process to know WS key was found or generated */
 #define H1S_F_HAVE_CLEN      0x00010000 /* Set during output process to know C*L header was found or generated */
@@ -126,8 +126,8 @@ static forceinline char *h1s_show_flags(char *buf, size_t len, const char *delim
 	_(H1S_F_WANT_KAL, _(H1S_F_WANT_TUN, _(H1S_F_WANT_CLO,
 	_(H1S_F_NOT_FIRST,
 	_(H1S_F_INTERNAL_ERROR, _(H1S_F_NOT_IMPL_ERROR, _(H1S_F_PARSING_ERROR, _(H1S_F_PROCESSING_ERROR,
-	_(H1S_F_HAVE_SRV_NAME, _(H1S_F_HAVE_O_CONN, _(H1S_F_HAVE_WS_KEY,
-	_(H1S_F_HAVE_CLEN, _(H1S_F_HAVE_CHNK, _(H1S_F_BODYLESS_REQ, _(H1S_F_BODYLESS_RESP))))))))))))))))));
+	_(H1S_F_HAVE_SRV_NAME, _(H1S_F_HAVE_SRV_DATE, _(H1S_F_HAVE_O_CONN, _(H1S_F_HAVE_WS_KEY,
+	_(H1S_F_HAVE_CLEN, _(H1S_F_HAVE_CHNK, _(H1S_F_BODYLESS_REQ, _(H1S_F_BODYLESS_RESP)))))))))))))))))));
 	/* epilogue */
 	_(~0U);
 	return buf;

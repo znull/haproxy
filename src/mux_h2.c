@@ -6924,6 +6924,7 @@ static size_t h2s_snd_bhdrs(struct h2s *h2s, struct htx *htx)
 	int ret = 0;
 	int hdr;
 	int extended_connect = 0;
+	char date_str[21], *date_end;
 
 	TRACE_ENTER(H2_EV_TX_FRAME|H2_EV_TX_HDR, h2c->conn, h2s);
 
@@ -6950,9 +6951,12 @@ static size_t h2s_snd_bhdrs(struct h2s *h2s, struct htx *htx)
 			list[hdr].n = htx_get_blk_name(htx, blk);
 			list[hdr].v = htx_get_blk_value(htx, blk);
 
-			/* Skip header if same name is used to add the server name */
+			/* Skip header if same name is used to add the server name or date */
 			if ((h2c->flags & H2_CF_IS_BACK) && isttest(h2c->proxy->server_id_hdr_name) &&
 			    isteq(list[hdr].n, h2c->proxy->server_id_hdr_name))
+				continue;
+			if ((h2c->flags & H2_CF_IS_BACK) && isttest(h2c->proxy->server_date_hdr_name) &&
+			    isteq(list[hdr].n, h2c->proxy->server_date_hdr_name))
 				continue;
 
 			/* Convert connection: upgrade to Extended connect from rfc 8441 */
@@ -7042,6 +7046,18 @@ static size_t h2s_snd_bhdrs(struct h2s *h2s, struct htx *htx)
 			list[hdr].v = ist(srv->id);
 			hdr++;
 		}
+	}
+
+	/* Now add the dispatch date to a header (if requested) */
+	if ((h2c->flags & H2_CF_IS_BACK) && isttest(h2c->proxy->server_date_hdr_name)) {
+		if (unlikely(hdr >= sizeof(list)/sizeof(list[0]) - 1)) {
+			TRACE_ERROR("too many headers", H2_EV_TX_FRAME|H2_EV_TX_HDR|H2_EV_H2S_ERR, h2c->conn, h2s);
+			goto fail;
+		}
+		date_end = ulltoa((ullong)date.tv_sec * 1000000 + date.tv_usec, date_str, sizeof(date_str));
+		list[hdr].n = h2c->proxy->server_date_hdr_name;
+		list[hdr].v = ist2(date_str, date_end - date_str);
+		hdr++;
 	}
 
 	/* marker for end of headers */

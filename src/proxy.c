@@ -267,6 +267,7 @@ static inline void proxy_free_common(struct proxy *px)
 	ha_free(&px->conn_src.bind_hdr_name);
 #endif
 	istfree(&px->server_id_hdr_name);
+	istfree(&px->server_date_hdr_name);
 	istfree(&px->header_unique_id);
 
 	http_ext_clean(px);
@@ -3395,6 +3396,8 @@ static int proxy_defproxy_cpy(struct proxy *curproxy, const struct proxy *defpro
 
 	if (isttest(defproxy->server_id_hdr_name))
 		curproxy->server_id_hdr_name = istdup(defproxy->server_id_hdr_name);
+	if (isttest(defproxy->server_date_hdr_name))
+		curproxy->server_date_hdr_name = istdup(defproxy->server_date_hdr_name);
 
 	/* initialize error relocations */
 	if (!proxy_dup_default_conf_errors(curproxy, defproxy, &tmpmsg)) {
